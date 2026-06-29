@@ -7,7 +7,10 @@
  *
  * @namespace UnoludoBoard
  */
-const UnoludoBoard = Object.create(null);
+/*global globalThis*/
+"use strict";
+
+var UnoludoBoard = Object.create(null);
 
 /**
  * Main track coordinates for Board V3.
@@ -194,4 +197,5 @@ UnoludoBoard.position_for_plane = function (plane, colour, plane_index) {
     return undefined;
 };
 
-export default Object.freeze(UnoludoBoard);
+Object.freeze(UnoludoBoard);
+globalThis.UnoludoBoard = UnoludoBoard;

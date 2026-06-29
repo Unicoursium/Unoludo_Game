@@ -123,6 +123,13 @@
 
     --left-panel-width: clamp(280px, 18vw, 360px);
     --right-panel-width: clamp(250px, 19vw, 340px);
+    /* Single source of truth for hand-card width. Card art is 1.6x as tall
+       as it is wide. */
+    --card-width: clamp(66px, 12.5vh, 112px);
+    /* Hand row hugs the cards: card height (1.6x width) plus a small, equal
+       margin above and below. The board is sized from whatever height is
+       left after this, so the two never overlap. */
+    --hand-row-height: calc(1.6 * var(--card-width) + 36px);
 }
 
 @font-face {
@@ -213,7 +220,7 @@ textarea {
     height: 100vh;
     display: grid;
     grid-template-columns: var(--left-panel-width) minmax(0, 1fr) var(--right-panel-width);
-    grid-template-rows: 1fr 205px;
+    grid-template-rows: minmax(0, 1fr) var(--hand-row-height);
     grid-template-areas:
         "left board right"
         "hand hand hand";
@@ -264,23 +271,29 @@ textarea {
 
 .hand-panel {
     grid-area: hand;
+    position: relative;
     width: 100%;
-    min-height: 190px;
-    padding: var(--space-5) var(--space-6) var(--space-2) var(--space-6);
+    min-height: 0;
+    padding: var(--space-4) var(--space-6) var(--space-4) var(--space-6);
     overflow: visible;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     animation: slideInBottom 620ms cubic-bezier(0.22, 1, 0.36, 1) 140ms both;
 }
 
+/* The "Can Play" hint floats in the top-left corner so it does not take a
+   header row and push the cards down — letting the cards sit centred with an
+   equal margin above and below. */
 .hand-panel-header {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(150px, 240px) 1fr minmax(150px, 240px);
-    align-items: start;
-    gap: var(--space-4);
+    position: absolute;
+    top: var(--space-4);
+    left: var(--space-6);
+    z-index: 3;
+    display: flex;
+    align-items: flex-start;
+    pointer-events: none;
 }
 
 .game-title-wrap {
@@ -525,7 +538,7 @@ textarea {
 }
 
 .played-card-image {
-    width: min(72%, 170px);
+    width: min(72%, clamp(96px, 18vh, 170px));
     max-width: 100%;
     height: auto;
     align-self: center;
@@ -545,7 +558,10 @@ textarea {
 
 .board-wrapper {
     position: relative;
-    width: min(100%, 76vh);
+    /* Limited by the column width AND by the height left under the hand row
+       (minus padding, gap and the turn indicator), so it always fits its cell
+       on any screen size without overlapping the hand. */
+    width: min(100%, calc(100vh - var(--hand-row-height) - 96px));
     aspect-ratio: 1 / 1;
     perspective: 1200px;
 }
@@ -850,14 +866,169 @@ button:active {
     background: linear-gradient(135deg, rgba(var(--rgb-cyan), 0.92), rgba(var(--rgb-green-deep), 0.92), rgba(var(--rgb-gold), 0.88));
 }
 
+.home-btn-tertiary {
+    background: linear-gradient(135deg, rgba(var(--rgb-green), 0.95), rgba(var(--rgb-cyan), 0.9), rgba(var(--rgb-blue), 0.88));
+}
+
+.tutorial-panel {
+    width: 100%;
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid rgba(var(--rgb-green), 0.38);
+    border-radius: var(--radius-xl);
+    background:
+        linear-gradient(145deg, rgba(var(--rgb-green), 0.12), rgba(var(--rgb-cyan), 0.08)),
+        rgba(var(--rgb-board-glass), 0.72);
+    box-shadow:
+        0 0 0 1px rgba(var(--rgb-white), 0.08),
+        0 14px 28px var(--color-shadow-black-28),
+        0 0 24px rgba(var(--rgb-green), 0.18);
+}
+
+.tutorial-level-label {
+    display: block;
+    margin-bottom: var(--space-2);
+    color: var(--color-green);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tutorial-title {
+    margin: var(--space-0) var(--space-0) var(--space-2) var(--space-0);
+    color: var(--color-white);
+    font-size: clamp(18px, 1.35vw, 24px);
+    line-height: 1.1;
+}
+
+.tutorial-instruction {
+    margin: var(--space-0);
+    color: var(--color-text-soft);
+    font-size: 14px;
+    line-height: 1.42;
+}
+
+.tutorial-control {
+    background: linear-gradient(135deg, rgba(var(--rgb-green), 0.92), rgba(var(--rgb-blue), 0.92));
+}
+
+.tutorial-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    transform: none;
+    filter: grayscale(0.35);
+}
+
+.tutorial-coach-layer {
+    position: fixed;
+    inset: var(--space-0);
+    z-index: 9000;
+    pointer-events: none;
+}
+
+.tutorial-coach-bubble {
+    position: fixed;
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid rgba(var(--rgb-white), 0.42);
+    border-radius: var(--radius-lg);
+    background: rgba(8, 22, 50, 0.72);
+    color: var(--color-white);
+    box-shadow:
+        0 0 0 1px rgba(var(--rgb-cyan), 0.18),
+        0 12px 26px var(--color-shadow-black-45),
+        0 0 24px rgba(var(--rgb-cyan), 0.28);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    animation: tutorialCoachFloat 1.35s ease-in-out infinite;
+}
+
+.tutorial-coach-bubble::after {
+    position: absolute;
+    left: var(--coach-arrow-left, 50%);
+    bottom: -8px;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    content: "";
+    border-right: 1px solid rgba(var(--rgb-white), 0.38);
+    border-bottom: 1px solid rgba(var(--rgb-white), 0.38);
+    background: rgba(8, 22, 50, 0.72);
+    transform: rotate(45deg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.tutorial-coach-bubble.is-below::after {
+    top: -8px;
+    bottom: auto;
+    transform: rotate(225deg);
+}
+
+.tutorial-ack-card {
+    align-self: center;
+    width: min(240px, 24vw);
+    min-width: 180px;
+    margin-left: var(--space-4);
+    padding: var(--space-3);
+    border: 1px solid rgba(var(--rgb-green), 0.52);
+    border-radius: var(--radius-lg);
+    background:
+        linear-gradient(145deg, rgba(var(--rgb-green), 0.16), rgba(var(--rgb-cyan), 0.1)),
+        rgba(8, 22, 50, 0.86);
+    box-shadow:
+        0 0 0 1px rgba(var(--rgb-white), 0.08),
+        0 14px 28px var(--color-shadow-black-45),
+        0 0 22px rgba(var(--rgb-green), 0.28);
+}
+
+.tutorial-ack-text {
+    margin: var(--space-0) var(--space-0) var(--space-3) var(--space-0);
+    color: var(--color-white);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.tutorial-ack-button {
+    width: 100%;
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid rgba(var(--rgb-white), 0.22);
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--color-green), var(--color-green-deep));
+    color: var(--color-white);
+    box-shadow: 0 10px 22px rgba(var(--rgb-green), 0.28);
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.tutorial-ack-button:hover {
+    transform: translateY(-2px);
+}
+
+@keyframes tutorialCoachFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
 #hand-cards,
 .hand-cards {
     display: flex;
     justify-content: center;
     align-items: flex-start;
     width: 100%;
-    min-height: 145px;
-    padding: var(--space-1) var(--space-0) var(--space-0) var(--space-0);
+    min-height: 0;
+    padding: var(--space-3) var(--space-0) var(--space-3) var(--space-0);
     overflow: visible;
 }
 
@@ -896,7 +1067,11 @@ button:active {
 .card-image {
     position: relative;
     z-index: var(--card-order, 1);
-    width: 112px;
+    width: var(--card-width);
+    /* Reserve the card's height (art is 450x720) before the image loads, so
+       layout does not shift afterwards. This keeps the centred hand stable and
+       lets the tutorial coach bubble measure the card's real position. */
+    aspect-ratio: 450 / 720;
     height: auto;
     margin-left: -30px;
     border-radius: var(--radius-md);
@@ -983,10 +1158,10 @@ button:active {
     display: none !important;
 }
 
-.help-overlay,
 .log-overlay,
 .winner-overlay,
-.choice-overlay {
+.choice-overlay,
+.tutorial-complete-overlay {
     position: fixed;
     inset: var(--space-0);
     z-index: 10000;
@@ -1006,43 +1181,55 @@ button:active {
     z-index: 11500;
 }
 
-.help-overlay.hidden,
+.tutorial-complete-overlay {
+    z-index: 13000;
+    background: rgba(var(--rgb-black), 0.38);
+    backdrop-filter: blur(10px) saturate(135%);
+    -webkit-backdrop-filter: blur(10px) saturate(135%);
+}
+
 .log-overlay.hidden,
 .winner-overlay.hidden,
-.choice-overlay.hidden {
+.choice-overlay.hidden,
+.tutorial-complete-overlay.hidden {
     display: none;
 }
 
-.help-content {
-    position: relative;
-    max-width: 92vw;
-    max-height: 92vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    animation: modalEnter 300ms ease-out both;
+.tutorial-complete-modal {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-4);
+    padding: var(--space-8);
+    text-align: center;
+    animation: modalEnter 260ms ease-out both;
 }
 
-.help-image {
-    max-width: 88vw;
-    max-height: 84vh;
-    object-fit: contain;
-    border-radius: var(--radius-2xl);
+.tutorial-complete-check {
+    display: grid;
+    width: clamp(112px, 18vw, 180px);
+    aspect-ratio: 1 / 1;
+    place-items: center;
+    border: 4px solid rgba(var(--rgb-white), 0.88);
+    border-radius: var(--radius-round);
+    background: linear-gradient(135deg, var(--color-green), var(--color-green-deep));
+    color: var(--color-white);
+    font-size: clamp(64px, 10vw, 118px);
+    font-weight: 900;
+    line-height: 1;
     box-shadow:
-        0 0 0 2px var(--color-border-glow),
-        0 24px 70px var(--color-shadow-black-50);
+        0 0 0 8px rgba(var(--rgb-green), 0.18),
+        0 0 42px rgba(var(--rgb-green), 0.62),
+        0 20px 42px var(--color-shadow-black-45);
 }
 
-.help-page-indicator {
-    margin: var(--space-4) var(--space-0) var(--space-0) var(--space-0);
-    color: var(--color-text-soft);
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+.tutorial-complete-modal h2 {
+    margin: var(--space-0);
+    color: var(--color-white);
+    font-size: clamp(28px, 4vw, 52px);
+    letter-spacing: 0;
+    text-shadow: 0 4px 18px var(--color-shadow-black-55);
 }
 
-.help-close,
 .log-close {
     position: fixed;
     top: var(--space-8);
@@ -1058,40 +1245,6 @@ button:active {
     line-height: 1;
     font-weight: 700;
     cursor: pointer;
-}
-
-.help-nav {
-    position: fixed;
-    top: 50%;
-    z-index: 10001;
-    width: var(--space-17);
-    height: var(--space-18);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-2xl);
-    background: var(--gradient-button);
-    color: var(--color-white);
-    font-size: 64px;
-    line-height: 1;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.help-nav:hover {
-    transform: translateY(-50%) scale(1.05);
-}
-
-.help-nav:active {
-    transform: translateY(-50%) scale(0.95);
-}
-
-.help-prev {
-    left: var(--space-10);
-    transform: translateY(-50%);
-}
-
-.help-next {
-    right: var(--space-10);
-    transform: translateY(-50%);
 }
 
 .log-modal,
@@ -1234,6 +1387,14 @@ button:active {
     border-radius: var(--radius-2xl);
     font-size: clamp(18px, 1.8vw, 24px);
     font-weight: 700;
+}
+
+/* A Wild +4 option that the current tutorial step does not allow. */
+.choice-locked {
+    opacity: 0.4;
+    filter: grayscale(0.7);
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .reverse-step-modal {
@@ -1576,6 +1737,61 @@ button:active {
     }
 }
 
+/* Wide-but-short screens (small laptops, tablets in landscape).
+   These stay in the desktop grid because the viewport is wide, but they lack
+   vertical room, so spacing and fixed-size elements are tightened here to
+   stop the board, panels and hand from overlapping. */
+@media (min-width: 1001px) and (max-height: 900px) {
+    .game-layout {
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    .left-panel {
+        padding: var(--space-4);
+    }
+
+    .player-status-panel {
+        margin-top: var(--space-2);
+        gap: var(--space-1);
+        padding: var(--space-2);
+    }
+
+    .player-status-row {
+        min-height: 34px;
+    }
+
+    .played-card-panel {
+        margin-top: var(--space-3);
+    }
+
+    #played-card-title {
+        margin-bottom: var(--space-2);
+        font-size: clamp(16px, 1.4vw, 22px);
+    }
+
+    .played-card-image {
+        width: min(58%, 130px);
+    }
+}
+
+@media (min-width: 1001px) and (max-height: 680px) {
+    .game-title-wrap {
+        margin-bottom: var(--space-2);
+    }
+
+    /* The last played card is still visible on the board as the centre
+       discard, so the side preview can be dropped to reclaim height. */
+    .played-card-panel {
+        display: none;
+    }
+
+    .turn-indicator {
+        margin-bottom: var(--space-1);
+        padding: var(--space-1) var(--space-2);
+    }
+}
+
 @media (max-width: 1000px) {
     #game-screen {
         align-items: flex-start;
@@ -1616,6 +1832,15 @@ button:active {
 
     .hand-panel {
         min-height: 190px;
+        justify-content: flex-start;
+    }
+
+    /* Stacked mobile layout flows top-to-bottom, so the hint sits back in the
+       normal document flow instead of floating in the corner. */
+    .hand-panel-header {
+        position: static;
+        width: 100%;
+        pointer-events: auto;
     }
 
     #hand-cards {
@@ -1711,9 +1936,9 @@ button:active {
     }
 
     .hand-panel {
-        min-height: 158px;
-        padding: var(--space-3) var(--space-0) var(--space-2) var(--space-0);
-        overflow: hidden;
+        min-height: 230px;
+        padding: var(--space-3) var(--space-0);
+        overflow: visible;
     }
 
     .hand-panel-header {
@@ -1758,8 +1983,8 @@ button:active {
     #hand-cards,
     .hand-cards {
         justify-content: flex-start;
-        min-height: 118px;
-        padding: var(--space-4) var(--space-4) var(--space-2) var(--space-4);
+        min-height: 150px;
+        padding: var(--space-4);
         overflow-x: auto;
         overflow-y: visible;
         scroll-padding-inline: var(--space-4);
@@ -1791,35 +2016,22 @@ button:active {
         font-size: 16px;
     }
 
-    .help-nav {
-        width: 48px;
-        height: 72px;
-        font-size: 48px;
-    }
-
-    .help-prev {
-        left: var(--space-4);
-    }
-
-    .help-next {
-        right: var(--space-4);
-    }
-
-    .help-close,
     .log-close {
         top: var(--space-4);
         right: var(--space-4);
-    }
-
-    .help-image {
-        max-width: 94vw;
-        max-height: 78vh;
     }
 
     .card-image {
         width: clamp(74px, 21vw, 92px);
         margin-left: -24px;
         flex: 0 0 auto;
+    }
+
+    .tutorial-ack-card {
+        width: 190px;
+        min-width: 190px;
+        flex: 0 0 auto;
+        margin-left: var(--space-3);
     }
 
     .playable-card {

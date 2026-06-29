@@ -14,6 +14,12 @@
     var onTurnChangeCallback = null;
     var isProcessing = false;
     var lastSyncedVersion = null;
+    var arrayToObject;
+    var destroy;
+    var flattenState;
+    var objectToArray;
+    var startGameStateListener;
+    var startLastActionListener;
 
     function init(roomIdParam, playerIndex) {
         destroy();
@@ -24,31 +30,46 @@
         startLastActionListener();
     }
 
-    function startGameStateListener() {
+    startGameStateListener = function () {
         gameStateListener = roomRef.child("gameState").on("value", function (snapshot) {
-            var state = snapshot.val();
-            if (state && onStateChangeCallback) {
-                lastSyncedVersion = (
-                    state.version === undefined
-                    ? 0
-                    : state.version
-                );
-                onStateChangeCallback(state);
-            }
-        });
-    }
+            var remoteState = snapshot.val();
+            var remoteVersion;
 
-    function startLastActionListener() {
+            if (!remoteState || !onStateChangeCallback) {
+                return;
+            }
+
+            remoteVersion = (
+                remoteState.version === undefined
+                ? 0
+                : remoteState.version
+            );
+
+            // Ignore snapshots older than the one we have already applied, so a
+            // delayed or out-of-order Firebase update cannot overwrite a newer
+            // state and desync the game.
+            if (lastSyncedVersion !== null && remoteVersion < lastSyncedVersion) {
+                return;
+            }
+
+            lastSyncedVersion = remoteVersion;
+            onStateChangeCallback(remoteState);
+        });
+    };
+
+    startLastActionListener = function () {
         lastActionListener = roomRef.child("lastAction").on("value", function (snapshot) {
             var action = snapshot.val();
             if (action && onTurnChangeCallback) {
                 onTurnChangeCallback(action);
             }
         });
-    }
+    };
 
     function setInitialState(state) {
-        if (!roomRef) return Promise.reject("No room");
+        if (!roomRef) {
+            return Promise.reject("No room");
+        }
         var flatState = flattenState(state);
         flatState.version = 0;
         lastSyncedVersion = 0;
@@ -63,14 +84,23 @@
     }
 
     function submitAction(actionType, data) {
-        if (!roomRef) return Promise.reject("No room");
-        if (isProcessing) return Promise.reject("Already processing");
+        var action;
+
+        if (!roomRef) {
+            return Promise.reject("No room");
+        }
+        if (isProcessing) {
+            return Promise.reject("Already processing");
+        }
         isProcessing = true;
-        var action = Object.assign({
+        action = {
             type: actionType,
             player: myIndex,
             timestamp: Date.now()
-        }, data);
+        };
+        Object.keys(data || {}).forEach(function (key) {
+            action[key] = data[key];
+        });
         return roomRef.child("lastAction").set(action).then(function () {
             isProcessing = false;
         }).catch(function (err) {
@@ -80,7 +110,9 @@
     }
 
     function updateGameState(newState, nextTurn) {
-        if (!roomRef) return Promise.reject("No room");
+        if (!roomRef) {
+            return Promise.reject("No room");
+        }
         var flatState = flattenState(newState);
         var expectedVersion = (
             lastSyncedVersion === null
@@ -151,45 +183,60 @@
 
     // ---- Flatten state for Firebase (arrays -> objects with numeric keys) ----
     function removeUndefined(obj) {
-        if (obj === null || obj === undefined) return undefined;
-        if (typeof obj !== "object") return obj;
+        var arr;
+        var keys;
+        var result;
+
+        if (obj === null || obj === undefined) {
+            return undefined;
+        }
+        if (typeof obj !== "object") {
+            return obj;
+        }
         if (Array.isArray(obj)) {
-            var arr = obj
+            arr = obj
                 .map(function (item) { return removeUndefined(item); })
                 .filter(function (item) { return item !== undefined; });
             return arr;
         }
-        var result = {};
-        var keys = Object.keys(obj);
-        for (var i = 0; i < keys.length; i++) {
-            var key = keys[i];
+
+        result = {};
+        keys = Object.keys(obj);
+        keys.forEach(function (key) {
             var val = removeUndefined(obj[key]);
             if (val !== undefined) {
                 result[key] = val;
             }
-        }
+        });
         return result;
     }
 
-    function flattenState(state) {
-        if (!state) return state;
+    flattenState = function (state) {
         var flat = {};
-        for (var key in state) {
-            // Firebase rejects undefined values — skip them
-            if (state[key] === undefined) continue;
-            flat[key] = state[key];
+
+        if (!state) {
+            return state;
         }
+
+        Object.keys(state).forEach(function (key) {
+            // Firebase rejects undefined values — skip them
+            if (state[key] !== undefined) {
+                flat[key] = state[key];
+            }
+        });
+
         if (state.players && Array.isArray(state.players)) {
             flat.players = {};
             state.players.forEach(function (player, i) {
                 var p = {};
-                for (var pk in player) {
+
+                Object.keys(player).forEach(function (pk) {
                     if ((pk === "hand" || pk === "planes") && Array.isArray(player[pk])) {
                         p[pk] = arrayToObject(player[pk]);
                     } else {
                         p[pk] = player[pk];
                     }
-                }
+                });
                 flat.players[i] = p;
             });
         }
@@ -203,23 +250,28 @@
             flat.log = arrayToObject(state.log);
         }
         return removeUndefined(flat);
-    }
+    };
 
     // ---- Unflatten state from Firebase (objects -> arrays) ----
     function unflattenState(state) {
-        if (!state) return state;
         var result = {};
-        for (var key in state) {
+
+        if (!state) {
+            return state;
+        }
+
+        Object.keys(state).forEach(function (key) {
             if (key === "players") {
                 result.players = objectToArray(state.players).map(function (player) {
                     var p = {};
-                    for (var pk in player) {
+
+                    Object.keys(player).forEach(function (pk) {
                         if (pk === "hand" || pk === "planes") {
                             p[pk] = objectToArray(player[pk]);
                         } else {
                             p[pk] = player[pk];
                         }
-                    }
+                    });
                     return p;
                 });
             } else if (key === "discard_pile" || key === "draw_pile" || key === "log") {
@@ -227,28 +279,45 @@
             } else {
                 result[key] = state[key];
             }
-        }
+        });
         return result;
     }
 
-    function arrayToObject(arr) {
-        if (!arr || !Array.isArray(arr)) return arr;
+    arrayToObject = function (arr) {
         var obj = {};
+
+        if (!arr || !Array.isArray(arr)) {
+            return arr;
+        }
+
         arr.forEach(function (item, i) { obj[i] = item; });
         return obj;
-    }
+    };
 
-    function objectToArray(obj) {
-        if (!obj) return [];
-        if (Array.isArray(obj)) return obj;
-        var keys = Object.keys(obj).sort(function (a, b) { return parseInt(a) - parseInt(b); });
+    objectToArray = function (obj) {
+        var keys;
+
+        if (!obj) {
+            return [];
+        }
+        if (Array.isArray(obj)) {
+            return obj;
+        }
+
+        keys = Object.keys(obj).sort(function (a, b) {
+            return parseInt(a, 10) - parseInt(b, 10);
+        });
         return keys.map(function (key) { return obj[key]; });
-    }
+    };
 
-    function destroy() {
+    destroy = function () {
         if (roomRef) {
-            if (gameStateListener) roomRef.child("gameState").off("value", gameStateListener);
-            if (lastActionListener) roomRef.child("lastAction").off("value", lastActionListener);
+            if (gameStateListener) {
+                roomRef.child("gameState").off("value", gameStateListener);
+            }
+            if (lastActionListener) {
+                roomRef.child("lastAction").off("value", lastActionListener);
+            }
         }
         gameStateListener = null;
         lastActionListener = null;
@@ -256,7 +325,7 @@
         roomRef = null;
         roomId = null;
         myIndex = null;
-    }
+    };
 
     window.UnoludoMultiplayer = {
         init: init,
@@ -272,4 +341,4 @@
         onStateChange: function (callback) { onStateChangeCallback = callback; },
         onTurnChange: function (callback) { onTurnChangeCallback = callback; }
     };
-})();
+}());

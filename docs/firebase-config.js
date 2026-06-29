@@ -1,7 +1,10 @@
+/*global console, firebase*/
+"use strict";
+
 // Firebase configuration for Unoludo 2.0
 // Uses Firebase compat SDK via CDN (no build step needed)
 
-const firebaseConfig = {
+var firebaseConfig = {
     apiKey: "AIzaSyCrnPKuJajSIcRDBnH1V_sRICJZJs5K1E8",
     authDomain: "unoludo.firebaseapp.com",
     databaseURL: "https://unoludo-default-rtdb.europe-west1.firebasedatabase.app",
@@ -15,10 +18,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 
 // Database reference
-const db = firebase.database();
+var db = firebase.database();
 
 // Lightweight identity for client-side multiplayer security rules.
-const firebaseReady = firebase.auth().signInAnonymously().then(function () {
+var firebaseReady = firebase.auth().signInAnonymously().then(function () {
     return firebase.auth().currentUser;
 }).catch(function (error) {
     console.error("Firebase anonymous sign-in failed:", error);

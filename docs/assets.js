@@ -3,7 +3,10 @@
  *
  * @namespace UnoludoAssets
  */
-const UnoludoAssets = Object.create(null);
+/*global globalThis*/
+"use strict";
+
+var UnoludoAssets = Object.create(null);
 
 UnoludoAssets.image_root = "./assets/img/";
 
@@ -67,4 +70,5 @@ UnoludoAssets.plane_image = function (colour) {
     return UnoludoAssets.plane_images[colour];
 };
 
-export default Object.freeze(UnoludoAssets);
+Object.freeze(UnoludoAssets);
+globalThis.UnoludoAssets = UnoludoAssets;
